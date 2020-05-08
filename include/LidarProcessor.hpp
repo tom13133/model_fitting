@@ -10,7 +10,7 @@
 //
 /////////////////////////////////// LICENSE ////////////////////////////////////
 //
-// Copyright (C) 2019 Yu-Han, Hsueh <zero000.eed03@nctu.edu.tw>
+// Copyright (C) 2020 Yu-Han, Hsueh <zero000.ece07g@nctu.edu.tw>
 //
 // This file is part of {model_fitting}.
 //
@@ -77,7 +77,7 @@ class LidarProcessor {
   std::vector<float> side_length;
   std::vector<float> lower_upper_bound;
 
-  std::fstream topic_config;
+  std::string pkg_path;
   std::ofstream outfile_l;
 
   std::string topic_name_lidar;

@@ -27,12 +27,8 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   lidar_data_pub = p_nh->advertise<std_msgs::Float32MultiArray>("lidar_data", 1);
 
   // Subscribe lidar topic
-  std::string buffer;
-  std::string path = ros::package::getPath("model_fitting");
-  topic_config.open(path+"/config/topic_config.txt");
-  getline(topic_config, buffer);
-  getline(topic_config, topic_name_lidar);
-
+  pkg_path = ros::package::getPath("model_fitting");
+  p_nh->getParam("/LidarProcessor_node/topic_name_lidar", topic_name_lidar);
   lidar_sub = p_nh->subscribe(topic_name_lidar, 100, &LidarProcessor::cb_lidar, this);
 
   // Read the specification of target
@@ -48,7 +44,7 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   nh->getParam("/LidarProcessor/lidar_resolution_set/horizontal_resolution", horizontal_resolution);
 
   // open file and save the processed target point
-  outfile_l.open(path+"/data/lidar_data_raw.csv");
+  outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
   outfile_l << "time_stamp, c_x1, c_y1, c_z1, c_x2, c_y2, c_z2,"
             << " t_x, t_y, t_z, r_x, r_y, r_z, l_x, l_y, l_z" << std::endl;
 }
@@ -82,8 +78,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   if (cloud_size.size() == 0) {
     cloud_size.push_back(pass_filtered_points->points.size());
     cloud_size.push_back(pass_filtered_points->points.size());
-  }
-  else {
+  } else {
     cloud_size[0] = cloud_size[1];
     cloud_size[1] = pass_filtered_points->points.size();
   }
