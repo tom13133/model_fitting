@@ -13,29 +13,20 @@ This package is to estimate the target center from ***Velodyne LiDAR*** messages
 ## 1. Target center from Velodyne LiDAR (sensor_msgs::PointCloud2)
 
 ### (a) Setup
-Before we start running the estimation module, there is two configuration files needed to be specfied.  
+Before we start running the estimation module, there is one configuration files needed to be specfied.  
 We use ROS Parameter Server to set the configurations.  
 
 1. path:  
 Their path are  
 ```
-~/target_processing/config/topic_config.txt
 ~/target_processing/config/lidar_config.yaml
 ```
 
 2. format:  
-**topic_config.txt** and **lidar_config.yaml** are used for launching **LidarProcessor_node**.  
+**lidar_config.yaml** are used for launching **LidarProcessor_node**.  
 
-**topic_config.txt**
-> radar_topic_name  
-> lidar_topic_name  
-> camera_topic_name  
-> ti_topic_name  
-> radar_frame  
-
-In **topic_config.txt**, the message topic name, and frame name should be specified in advance. To launch **LidarProcessor_node**, only ***lidar_topic_name*** is needed to specified.  
-
-**lidar_config.yaml**
+**lidar_config.yaml**  
+> topic_name_lidar: "/points_raw"  
 > passthrough_filter_set:  
 >   center: [0, 0, 0]  
 >   cube_side_length: [2,2,10]  
@@ -49,7 +40,7 @@ In **topic_config.txt**, the message topic name, and frame name should be specif
 >   vertical_resolution: 1.33  
 >   horizontal_resolution: 0.16  
 
-
+**topic_name_lidar** specify the topic name for subsciber.  
 **passthrough_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
 **intensity_filter_set** is used to extract target points from pointcloud by predifining a intensity region.  
 **target_size_set** is the specification of target ("triangle" or "square"). (unit: m)  
@@ -62,11 +53,12 @@ In **topic_config.txt**, the message topic name, and frame name should be specif
 roslaunch target_processing lidar.launch
 ```
 
-2. Overlook into the X-Y plane, observe and use **rosparam set** to specify the start point of target.  
+2. Overlook into the X-Y plane, observe and use **rosparam set** to specify the possible location of target.  
 For instance,
 ```
 rosparam set /LidarProcessor_node/passthrough_filter_set/center [7,5,0]
 ```
+Or set the location in **lidar_config.yaml** directly.  
 
 3. Play the bag, then start processing.  
 After bag is finished, one output file **lidar_data_raw.csv** would be generated in ```~/target_processing/data/```. It contains the target center and the vertices with timestamp:  

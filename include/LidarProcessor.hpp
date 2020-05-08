@@ -59,10 +59,7 @@ class LidarProcessor {
   ros::Publisher centroid_pub;
   ros::Publisher model_centroid_pub;
   ros::Publisher model_pub;
-
   ros::Publisher normal_pub;
-
-  ros::Publisher lidar_data_pub;
 
   // Subscriber
   ros::Subscriber lidar_sub;

@@ -24,8 +24,6 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   model_pub = p_nh->advertise<visualization_msgs::Marker>("model", 1, true);
   normal_pub = p_nh->advertise<visualization_msgs::Marker>("normal", 1, true);
 
-  lidar_data_pub = p_nh->advertise<std_msgs::Float32MultiArray>("lidar_data", 1);
-
   // Subscribe lidar topic
   pkg_path = ros::package::getPath("model_fitting");
   p_nh->getParam("/LidarProcessor_node/topic_name_lidar", topic_name_lidar);
@@ -174,22 +172,6 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                            depth);
     normal_pub.publish(normal_arrow);
 
-    // Publish computed data for visualization
-    std_msgs::Float32MultiArray lidar_data;
-    lidar_data.data.resize(12);
-    lidar_data.data[0] = centroid[0];
-    lidar_data.data[1] = centroid[1];
-    lidar_data.data[2] = centroid[2];
-    lidar_data.data[3] = 0;
-    lidar_data.data[4] = 0;
-    lidar_data.data[5] = 0;
-    lidar_data.data[6] = 0;
-    lidar_data.data[7] = 0;
-    lidar_data.data[8] = 0;
-    lidar_data.data[9] = 0;
-    lidar_data.data[10] = 0;
-    lidar_data.data[11] = 0;
-    lidar_data_pub.publish(lidar_data);
     std::vector<float> new_center{static_cast<float>(centroid[0]),
                                   static_cast<float>(centroid[1]),
                                   static_cast<float>(centroid[2])};
@@ -309,23 +291,6 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                          topic_frame_lidar,
                                                          depth);
   normal_pub.publish(normal_arrow);
-
-  // Publish computed data for visualization
-  std_msgs::Float32MultiArray lidar_data;
-  lidar_data.data.resize(12);
-  lidar_data.data[0] = model_centroid[0]-normal[0]*depth;
-  lidar_data.data[1] = model_centroid[1]-normal[1]*depth;
-  lidar_data.data[2] = model_centroid[2]-normal[2]*depth;
-  lidar_data.data[3] = tip_points_fit[0][0];
-  lidar_data.data[4] = tip_points_fit[0][1];
-  lidar_data.data[5] = tip_points_fit[0][2];
-  lidar_data.data[6] = tip_points_fit[1][0];
-  lidar_data.data[7] = tip_points_fit[1][1];
-  lidar_data.data[8] = tip_points_fit[1][2];
-  lidar_data.data[9] = tip_points_fit[2][0];
-  lidar_data.data[10] = tip_points_fit[2][1];
-  lidar_data.data[11] = tip_points_fit[2][2];
-  lidar_data_pub.publish(lidar_data);
 
   std::vector<float> new_center{static_cast<float>(model_centroid[0]),
                                 static_cast<float>(model_centroid[1]),

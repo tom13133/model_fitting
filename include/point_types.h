@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename:      point_types.h
-// Authors:       YuHan-XUE
+// Authors:       Yu-Han, Hsueh
 //
 //////////////////////////////// FILE INFO /////////////////////////////////////
 //
@@ -10,20 +10,20 @@
 //
 /////////////////////////////////// LICENSE ////////////////////////////////////
 //
-// Copyright (C) 2018 Yuhan,XUE <zero000.eed03@nctu.edu.tw>
+// Copyright (C) 2020 Yu-Han, Hsueh <zero000.ece07g@nctu.edu.tw>
 //
 // This file is part of {model_fitting}.
 //
 // {model_fitting} can not be copied and/or distributed without the express
-// permission of {Yuhan,XUE}
+// permission of {Yu-Han, Hsueh}
 //
 //////////////////////////////////// NOTES /////////////////////////////////////
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __VELODYNE_POINTCLOUD_POINT_TYPES_H
-#define __VELODYNE_POINTCLOUD_POINT_TYPES_H
+#ifndef INCLUDE_POINT_TYPES_H_
+#define INCLUDE_POINT_TYPES_H_
 
 #define PCL_NO_PRECOMPILE
 
@@ -50,4 +50,4 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(velodyne_pointcloud::PointXYZIR,
                                   (uint16_t, ring, ring))
 
 typedef pcl::PointCloud<velodyne_pointcloud::PointXYZIR> PointCloud;
-#endif  // __VELODYNE_POINTCLOUD_POINT_TYPES_H
+#endif  // INCLUDE_POINT_TYPES_H_

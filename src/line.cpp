@@ -34,19 +34,17 @@ void LineData::reorder(int option) {
     std::sort(line_.begin(), line_.end(),
               [](std::pair<Point, int> a, std::pair<Point, int> b)
               {return a.first.x() > b.first.x(); });
-  }
-  else if (option == 1) {
+  } else if (option == 1) {
     std::sort(line_.begin(), line_.end(),
               [](std::pair<Point, int> a, std::pair<Point, int> b)
               {return a.first.y() > b.first.y(); });
-  }
-  else if (option == 2) {
+  } else if (option == 2) {
     std::sort(line_.begin(), line_.end(),
               [](std::pair<Point, int> a, std::pair<Point, int> b)
               {return a.first.z() > b.first.z(); });
-  }
-  else
+  } else {
     std::cerr << "Wrong Option." << std::endl;
+  }
 }
 
 
@@ -124,8 +122,7 @@ void purify(std::vector<LineData>& lines) {
         break;
       }
     }
-  }
-  else if (str.compare("square") == 0) {
+  } else if (str.compare("square") == 0) {
     // Remove tube (sqare board)
     for (int i = 1; i < lines.size(); i++) {
       std::vector<std::pair<Point, int>> l1 = lines[i-1].get_line();
@@ -137,8 +134,7 @@ void purify(std::vector<LineData>& lines) {
         for (int j = 2 * (i-1) + 1; j < lines.size(); j++)
           erase_set.push_back(j);
         break;
-      }
-      else if ( i > 1 && (Distance(lines[i].get_avg(), lines[i-1].get_avg())
+      } else if ( i > 1 && (Distance(lines[i].get_avg(), lines[i-1].get_avg())
                > Distance(lines[i-1].get_avg(), lines[i-2].get_avg()) * 2)) {
         for (int j = i; j < lines.size(); j++)
           erase_set.push_back(j);
@@ -170,8 +166,7 @@ std::vector<LineData> edge_extract(const std::vector<LineData>& lines) {
   for (auto line : lines) {
     if (line.get_size() <=  2) {
       new_lines.push_back(line);
-    }
-    else {
+    } else {
       std::vector<std::pair<Point, int>> line_temp = line.get_line();
       LineData new_line;
       new_line.add_point(line_temp[0].first, line_temp[0].second);

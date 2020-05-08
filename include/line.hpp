@@ -9,7 +9,7 @@
 //
 /////////////////////////////////// LICENSE ////////////////////////////////////
 //
-// Copyright (C) 2019 Yu-Han, Hsueh <zero000.eed03@nctu.edu.tw>
+// Copyright (C) 2020 Yu-Han, Hsueh <zero000.ece07g@nctu.edu.tw>
 //
 // This file is part of {model_fitting}.
 //
@@ -61,6 +61,7 @@ class LineData {
   inline void set_stamp(uint64_t stamp) {
     stamp_ = stamp;
   }
+
   inline std::vector<std::pair<Point, int>> get_line() const {
     return line_;
   }

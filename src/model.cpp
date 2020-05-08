@@ -268,18 +268,15 @@ class ModelErrorTerm {
 
       if (IsPointInTriangle(point_, endpoints)) {
         residual[0] = 0;
-      }
-      else {
+      } else {
         residual[0] = point_to_triangle_distance(x_y_phi, point_);
       }
-    }
-    else if (str.compare("square") == 0) {
+    } else if (str.compare("square") == 0) {
       std::vector<Vector2> endpoints
           = x_y_phi_2_square(Vector3(x_y_phi[0], x_y_phi[1], x_y_phi[2]));
       if (IsPointInSquare(point_, endpoints)) {
         residual[0] = 0;
-      }
-      else {
+      } else {
         residual[0] = point_to_square_distance(x_y_phi, point_);
       }
     }
@@ -307,25 +304,22 @@ class ModelErrorTerm2 {
     std::string str(m_type);
 
     if (str.compare("triangle") == 0) {
-       std::vector<Vector2> tri_points
-            = x_y_phi_2_triangle(Vector3(x_y_phi[0], x_y_phi[1], x_y_phi[2]));
-       if (IsPointInTriangle(point_, tri_points)) {
-         residual[0] = point_to_triangle_distance(x_y_phi, point_)
-                       * point_to_triangle_distance(x_y_phi, point_);
-       }
-       else {
-         residual[0] = 2 * point_to_triangle_distance(x_y_phi, point_)
-                       * point_to_triangle_distance(x_y_phi, point_);
-       }
-    }
-    else if (str.compare("square") == 0) {
+      std::vector<Vector2> tri_points
+           = x_y_phi_2_triangle(Vector3(x_y_phi[0], x_y_phi[1], x_y_phi[2]));
+      if (IsPointInTriangle(point_, tri_points)) {
+        residual[0] = point_to_triangle_distance(x_y_phi, point_)
+                      * point_to_triangle_distance(x_y_phi, point_);
+      } else {
+        residual[0] = 2 * point_to_triangle_distance(x_y_phi, point_)
+                      * point_to_triangle_distance(x_y_phi, point_);
+      }
+    } else if (str.compare("square") == 0) {
       std::vector<Vector2> endpoints
           = x_y_phi_2_square(Vector3(x_y_phi[0], x_y_phi[1], x_y_phi[2]));
       if (IsPointInSquare(point_, endpoints)) {
         residual[0] = point_to_square_distance(x_y_phi, point_)
                       * point_to_square_distance(x_y_phi, point_);
-      }
-      else {
+      } else {
         residual[0] = 2 * point_to_square_distance(x_y_phi, point_)
                       * point_to_square_distance(x_y_phi, point_);
       }

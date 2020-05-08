@@ -48,7 +48,6 @@ include_directories(
 
 ## Declare a C++ library
  add_library(${PROJECT_NAME}
-   src/types.cpp
    src/lidar_processing.cpp
    src/model.cpp
    src/LidarProcessor.cpp

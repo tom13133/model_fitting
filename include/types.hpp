@@ -9,7 +9,7 @@
 //
 /////////////////////////////////// LICENSE ////////////////////////////////////
 //
-// Copyright (C) 2018 Yuhan,XUE <zero000.eed03@nctu.edu.tw>
+// Copyright (C) 2020 Yu-Han, Hsueh <zero000.ece07g@nctu.edu.tw>
 //
 // This file is part of {model_fitting}.
 //
@@ -17,8 +17,6 @@
 // permission of {Yu-Han, Hsueh}
 //
 //////////////////////////////////// NOTES /////////////////////////////////////
-//
-// TODO(Yuhan):
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -49,7 +47,9 @@ typedef SE3 Pose;
 
 
 // Point-to-Point distance
-double Distance(const Point& p1, const Point& p2);
+inline double Distance(const Point& p1, const Point& p2) {
+  return (p1 - p2).norm();
+}
 
 inline double DegToRad(const double deg) {
   return deg * M_PI / 180.;
