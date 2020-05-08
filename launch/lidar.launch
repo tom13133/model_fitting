@@ -1,0 +1,14 @@
+<!-- Filename: lidar.launch -->
+<!-- Fileinfo: launch LidarProcessor_node -->
+
+<launch>
+    <param name="use_sim_time" value="true" />
+    <arg name="node_name" default="LidarProcessor_node"/>
+    <arg name="pkg_name" value="model_fitting"/>
+    <arg name="local" default="true"/>
+
+    <node name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name)" output="screen" required="true">
+        <rosparam  command="load" file="$(find model_fitting)/config/lidar_config.yaml"/>
+    </node>
+
+</launch>
