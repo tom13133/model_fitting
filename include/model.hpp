@@ -59,6 +59,11 @@ visualization_msgs::Marker mark_centroid(const Point& c,
                                          const Vector3& color,
                                          const std::string& lidar_frame);
 
+visualization_msgs::Marker mark_cube(const Point& c,
+                                     const std::vector<float>& side_length,
+                                     const Vector3& color,
+                                     const std::string& lidar_frame);
+
 // Print polygon model on rviz given all endpoints
 visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
                                        const std::string& lidar_frame);

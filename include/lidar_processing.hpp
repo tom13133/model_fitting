@@ -35,10 +35,10 @@
 
 namespace model_fitting {
 // Given a centroid, discard points outside certain size cube region
-void pass_filter(const Point& center,
-                 const std::vector<float>& cube_side_length,
-                 const PointCloud::ConstPtr& input,
-                 const PointCloud::Ptr& output);
+void box_filter(const Point& center,
+                const std::vector<float>& cube_side_length,
+                const PointCloud::ConstPtr& input,
+                const PointCloud::Ptr& output);
 
 // Given intesity low/upper bound, discard points outside the bound
 void intensity_filter(float low_bound,

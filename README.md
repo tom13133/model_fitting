@@ -27,7 +27,7 @@ Their path are
 
 **lidar_config.yaml**  
 > topic_name_lidar: "/points_raw"  
-> passthrough_filter_set:  
+> box_filter_set:  
 >   center: [0, 0, 0]  
 >   cube_side_length: [2,2,10]  
 > intensity_filter_set:  
@@ -41,7 +41,7 @@ Their path are
 >   horizontal_resolution: 0.16  
 
 **topic_name_lidar** specify the topic name for subsciber.  
-**passthrough_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
+**box_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
 **intensity_filter_set** is used to extract target points from pointcloud by predifining a intensity region.  
 **target_size_set** is the specification of target ("triangle" or "square"). (unit: m)  
 **lidar_resolution_set** is the specification of Velodyne LiDAR resolution (unit: deg).  

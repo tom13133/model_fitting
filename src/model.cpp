@@ -146,6 +146,42 @@ visualization_msgs::Marker mark_centroid(const Point& c,
   return marker;
 }
 
+visualization_msgs::Marker mark_cube(const Point& c,
+                                     const std::vector<float>& side_length,
+                                     const Vector3& color,
+                                     const std::string& lidar_frame) {
+  visualization_msgs::Marker marker;
+  // marker setup
+  marker.header.frame_id = lidar_frame;
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "vis";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::CUBE;
+  marker.action = visualization_msgs::Marker::ADD;
+
+  // marker.pose decide the origin of SPHERE
+  marker.pose.position.x = c[0];
+  marker.pose.position.y = c[1];
+  marker.pose.position.z = c[2];
+  marker.pose.orientation.x = 0;
+  marker.pose.orientation.y = 0;
+  marker.pose.orientation.z = 0;
+  marker.pose.orientation.w = 1;
+
+  // sphere size
+  marker.scale.x = side_length[0];
+  marker.scale.y = side_length[1];
+  marker.scale.z = side_length[2];
+
+  marker.color.r = color[0];
+  marker.color.g = color[1];
+  marker.color.b = color[2];
+  marker.color.a = 0.5;
+
+  marker.lifetime = ros::Duration(0.5);
+
+  return marker;
+}
 
 visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
                                        const std::string& lidar_frame) {

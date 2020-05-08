@@ -51,12 +51,13 @@ class LidarProcessor {
   ros::NodeHandle* p_nh;
 
   // Publisher
-  ros::Publisher pass_filtered_points_pub;
+  ros::Publisher filtered_points_pub;
   ros::Publisher plane_points_pub;
   ros::Publisher target_points_pub;
   ros::Publisher edge_points_pub;
 
   ros::Publisher centroid_pub;
+  ros::Publisher cube_pub;
   ros::Publisher model_centroid_pub;
   ros::Publisher model_pub;
   ros::Publisher normal_pub;

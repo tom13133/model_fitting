@@ -2,6 +2,8 @@
 
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/impl/extract_indices.hpp>
+#include <pcl/filters/crop_box.h>
+#include <pcl/filters/impl/crop_box.hpp>
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/impl/passthrough.hpp>
 #include <pcl/ModelCoefficients.h>
@@ -13,30 +15,22 @@
 #include <lidar_processing.hpp>
 
 namespace model_fitting {
-void pass_filter(const Point& center,
-                 const std::vector<float>& cube_side_length,
-                 const PointCloud::ConstPtr& input,
-                 const PointCloud::Ptr& output) {
-  pcl::PassThrough<velodyne_pointcloud::PointXYZIR> pass;
-
-  // range settings
-  pass.setInputCloud(input);
-  pass.setFilterFieldName("x");
-  pass.setFilterLimits(center[0] - cube_side_length[0] / 2,
-                       center[0] + cube_side_length[0] / 2);
-  pass.filter(*output);
-
-  pass.setInputCloud(output);
-  pass.setFilterFieldName("y");
-  pass.setFilterLimits(center[1] - cube_side_length[1] / 2,
-                       center[1] + cube_side_length[1] / 2);
-  pass.filter(*output);
-
-  pass.setInputCloud(output);
-  pass.setFilterFieldName("z");
-  pass.setFilterLimits(center[2] - cube_side_length[2] / 2,
-                       center[2] + cube_side_length[2] / 2);
-  pass.filter(*output);
+void box_filter(const Point& center,
+                const std::vector<float>& cube_side_length,
+                const PointCloud::ConstPtr& input,
+                const PointCloud::Ptr& output) {
+  pcl::CropBox<velodyne_pointcloud::PointXYZIR> box_filter;
+  int x1 = center[0] - cube_side_length[0] / 2;
+  int x2 = center[0] + cube_side_length[0] / 2;
+  int y1 = center[1] - cube_side_length[1] / 2;
+  int y2 = center[1] + cube_side_length[1] / 2;
+  int z1 = center[2] - cube_side_length[2] / 2;
+  int z2 = center[2] + cube_side_length[2] / 2;
+  box_filter.setMin(Eigen::Vector4f(x1, y1, z1, 1.0));
+  box_filter.setMax(Eigen::Vector4f(x2, y2, z2, 1.0));
+  box_filter.setInputCloud(input);
+  box_filter.setNegative(false);
+  box_filter.filter(*output);
 }
 
 

@@ -14,12 +14,13 @@ namespace model_fitting {
 LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   p_nh = nh;
 
-  pass_filtered_points_pub = p_nh->advertise<PointCloud>("pass_filtered_points", 1, true);
+  filtered_points_pub = p_nh->advertise<PointCloud>("filtered_points", 1, true);
   plane_points_pub = p_nh->advertise<PointCloud>("plane_points", 1, true);
   target_points_pub = p_nh->advertise<PointCloud>("target_points", 1, true);
   edge_points_pub = p_nh->advertise<PointCloud>("edge_points", 1, true);
 
   centroid_pub = p_nh->advertise<visualization_msgs::Marker>("centroid", 1, true);
+  cube_pub = p_nh->advertise<visualization_msgs::Marker>("box_filter_bound", 1, true);
   model_centroid_pub = p_nh->advertise<visualization_msgs::Marker>("model_centroid", 1, true);
   model_pub = p_nh->advertise<visualization_msgs::Marker>("model", 1, true);
   normal_pub = p_nh->advertise<visualization_msgs::Marker>("normal", 1, true);
@@ -58,27 +59,33 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
 
   topic_frame_lidar = msg.header.frame_id;
   // Lidar pointcloud processing
-  PointCloud::Ptr pass_filtered_points(new PointCloud);
 
-  // Use pass filter(tracking) to filter pointcloud
-  p_nh->getParam("/LidarProcessor_node/passthrough_filter_set/center", center);
-  p_nh->getParam("/LidarProcessor_node/passthrough_filter_set/cube_side_length", side_length);
-  pass_filter(Point(center[0], center[1], center[2]),
+  PointCloud::Ptr box_filtered_points(new PointCloud);
+  // Use box filter(tracking) to filter pointcloud
+  p_nh->getParam("/LidarProcessor_node/box_filter_set/center", center);
+  p_nh->getParam("/LidarProcessor_node/box_filter_set/cube_side_length", side_length);
+  Vector3 color_white(1, 1, 1);
+  visualization_msgs::Marker box_bound = mark_cube(Point(center[0], center[1], center[2]),
+                                                   side_length,
+                                                   color_white,
+                                                   topic_frame_lidar);
+  cube_pub.publish(box_bound);
+  box_filter(Point(center[0], center[1], center[2]),
               side_length,
               cloud,
-              pass_filtered_points);
-  if (pass_filtered_points->points.size() == 0) {
+              box_filtered_points);
+  if (box_filtered_points->points.size() == 0) {
     ROS_INFO("All points has been filtered(situation 1): After pass-filtering, no one left.");
     return;
   }
 
   // Ignore the case that two set of point cloud overlap
   if (cloud_size.size() == 0) {
-    cloud_size.push_back(pass_filtered_points->points.size());
-    cloud_size.push_back(pass_filtered_points->points.size());
+    cloud_size.push_back(box_filtered_points->points.size());
+    cloud_size.push_back(box_filtered_points->points.size());
   } else {
     cloud_size[0] = cloud_size[1];
-    cloud_size[1] = pass_filtered_points->points.size();
+    cloud_size[1] = box_filtered_points->points.size();
   }
 
   if (cloud_size[1] > cloud_size[0] * 1.5) {
@@ -92,7 +99,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   PointCloud::Ptr intensity_filtered_points(new PointCloud);
 
   intensity_filter(lower_upper_bound[0], lower_upper_bound[1],
-                   pass_filtered_points, intensity_filtered_points);
+                   box_filtered_points, intensity_filtered_points);
 
   if (intensity_filtered_points->points.size() == 0) {
     ROS_INFO("All points has been filtered(situation 2): After filtering by intensity), no one left.");
@@ -107,7 +114,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
               << std::endl;
   }
 
-  pass_filtered_points_pub.publish(intensity_filtered_points);
+  filtered_points_pub.publish(intensity_filtered_points);
 
   // Classify pointcloud into different line by using ring information
   std::vector<LineData> lines = line_classifier(intensity_filtered_points);
@@ -175,7 +182,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
     std::vector<float> new_center{static_cast<float>(centroid[0]),
                                   static_cast<float>(centroid[1]),
                                   static_cast<float>(centroid[2])};
-    p_nh->setParam("/LidarProcessor_node/passthrough_filter_set/center", new_center);
+    p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
     return;
   }
 
@@ -295,7 +302,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   std::vector<float> new_center{static_cast<float>(model_centroid[0]),
                                 static_cast<float>(model_centroid[1]),
                                 static_cast<float>(model_centroid[2])};
-  p_nh->setParam("/LidarProcessor_node/passthrough_filter_set/center", new_center);
+  p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
 }
 
 LidarProcessor::~LidarProcessor() {
