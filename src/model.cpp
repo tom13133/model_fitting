@@ -216,31 +216,6 @@ visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
 }
 
 
-double point_to_line_distance(const Point& p, const LineData& line) {
-  Point v, w, pb;
-  double c1, c2, b;
-  double total_distance = 0, count = 0;
-
-  auto l = line.get_line();
-
-  for (int i = 0; i < l.size() - 1; i++) {
-    for (int j = i+1; j < l.size() ; j++) {
-      v = l[i].first-l[j].first;
-      w = p - l[j].first;
-      c1 = w.dot(v);
-      c2 = v.dot(v);
-      b = c1/c2;
-      pb = l[j].first+ b*v;
-      total_distance += Distance(p, pb);
-      count++;
-    }
-  }
-  total_distance /= count;
-
-  return total_distance;
-}
-
-
 double point_to_triangle_distance(const double* const x_y_phi,
                                   const Vector2& point) {
   std::vector<Vector2> tri_points
@@ -372,15 +347,13 @@ class ModelErrorTerm2 {
   const Vector2 point_;
 };  // class Point2LineErrorTerm
 
-
-Vector3 model_fitting_2D(const std::vector<LineData>& lines,
+Vector3 model_fitting_2D(const std::vector<Vector2>& edge_points,
                          const Vector2& centroid,
                          double phi) {
   double *x_y_phi = new double[3];
   *x_y_phi = centroid[0];
   *(x_y_phi+1) = centroid[1];
   *(x_y_phi+2) = phi;
-
   // First stage: fix centroid (x,y), compute phi as initial guess
   ceres::Problem problem;
   problem.AddParameterBlock(x_y_phi, 3);
@@ -391,16 +364,10 @@ Vector3 model_fitting_2D(const std::vector<LineData>& lines,
   problem.SetParameterization(x_y_phi, subset_parameterization);
 
   int pre_line_size = 0;
-  for (size_t i = 0; i < lines.size(); ++i) {
-    std::vector<std::pair<Point, int>> line = lines[i].get_line();
-    if (line.size() < pre_line_size) {
-      continue;
-    }
-    for (auto p : line) {
+  for (auto ep : edge_points) {
     ceres::CostFunction* cost_function
-                         = ModelErrorTerm::Create(Vector2(p.first.x(), p.first.y()));
+                         = ModelErrorTerm::Create(ep);
     problem.AddResidualBlock(cost_function, NULL, x_y_phi);
-    }
   }
 
   ceres::Solver::Options options;
@@ -418,19 +385,13 @@ Vector3 model_fitting_2D(const std::vector<LineData>& lines,
   // initial guess
   ceres::Problem problem2;
   problem2.AddParameterBlock(x_y_phi, 3);
-  pre_line_size = 0;
+
 
   // Optimize all three parameters x_y_phi
-  for (size_t i = 0; i < lines.size(); ++i) {
-    std::vector<std::pair<Point, int>> line = lines[i].get_line();
-    if (line.size() < pre_line_size) {
-      continue;
-    }
-    for (auto p : line) {
+  for (auto ep : edge_points) {
     ceres::CostFunction* cost_function
-                         = ModelErrorTerm2::Create(Vector2(p.first.x(), p.first.y()));
+                         = ModelErrorTerm2::Create(ep);
     problem2.AddResidualBlock(cost_function, NULL, x_y_phi);
-    }
   }
   ceres::Solver::Summary summary2;
   ceres::Solve(options, &problem2, &summary2);

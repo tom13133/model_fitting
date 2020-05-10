@@ -48,11 +48,11 @@ include_directories(
 
 ## Declare a C++ library
  add_library(${PROJECT_NAME}
+   src/kalman_filter.cpp
+   src/LidarProcessor.cpp
    src/lidar_processing.cpp
    src/model.cpp
-   src/LidarProcessor.cpp
-   src/line.cpp
-   src/kalman_filter.cpp
+   src/ransac.cpp
  )
 
 add_executable(LidarProcessor_node script/LidarProcessor_node.cpp)

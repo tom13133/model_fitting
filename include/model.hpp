@@ -27,7 +27,6 @@
 
 #include <visualization_msgs/Marker.h>
 
-#include <line.hpp>
 #include <types.hpp>
 
 namespace model_fitting {
@@ -54,7 +53,20 @@ bool IsPointInTriangle(const Vector2& point,
 bool IsPointInSquare(const Vector2& point,
                        const std::vector<Vector2>& tri_points);
 
-// To print one sphere on rviz with a given centroid c
+// Compute the distance between one point and the nearst model edge
+double point_to_triangle_distance(const double* const x_y_phi,
+                                  const Vector2& point);
+double point_to_square_distance(const double* const x_y_phi,
+                                  const Vector2& point);
+
+// Project 3D-pointcloud into 2D, and return the triangle model
+// described as x_y_phi
+Vector3 model_fitting_2D(const std::vector<Vector2>& edge_points,
+                         const Vector2& centroid,
+                         double phi);
+
+
+// Visualization
 visualization_msgs::Marker mark_centroid(const Point& c,
                                          const Vector3& color,
                                          const std::string& lidar_frame);
@@ -67,22 +79,6 @@ visualization_msgs::Marker mark_cube(const Point& c,
 // Print polygon model on rviz given all endpoints
 visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
                                        const std::string& lidar_frame);
-
-// Calculate the point to line distance
-double point_to_line_distance(const Point& p,
-                              const std::vector<LineData>& line);
-
-// Compute the distance between one point and the nearst model edge
-double point_to_triangle_distance(const double* const x_y_phi,
-                                  const Vector2& point);
-double point_to_square_distance(const double* const x_y_phi,
-                                  const Vector2& point);
-
-// Project 3D-pointcloud into 2D, and return the triangle model
-// described as x_y_phi
-Vector3 model_fitting_2D(const std::vector<LineData>& lines,
-                         const Vector2& centroid,
-                         double phi);
 
 // Print computed normal of triangle model on rviz
 visualization_msgs::Marker print_Normal(const Point& pt,

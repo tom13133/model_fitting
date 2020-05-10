@@ -27,11 +27,9 @@
 #include <pcl_ros/point_cloud.h>
 #include <sophus/se3.hpp>
 
-#include <point_types.h>
-
 namespace model_fitting {
 
-// typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
+typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
 typedef Eigen::AngleAxisd AngleAxis;
 typedef Eigen::Quaterniond Quaternion;

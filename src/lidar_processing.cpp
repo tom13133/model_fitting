@@ -1,31 +1,27 @@
 #include <iostream>
 
 #include <pcl/filters/extract_indices.h>
-#include <pcl/filters/impl/extract_indices.hpp>
 #include <pcl/filters/crop_box.h>
-#include <pcl/filters/impl/crop_box.hpp>
 #include <pcl/filters/passthrough.h>
-#include <pcl/filters/impl/passthrough.hpp>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/segmentation/impl/sac_segmentation.hpp>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 
 #include <lidar_processing.hpp>
 
 namespace model_fitting {
-void box_filter(const Point& center,
-                const std::vector<float>& cube_side_length,
-                const PointCloud::ConstPtr& input,
-                const PointCloud::Ptr& output) {
-  pcl::CropBox<velodyne_pointcloud::PointXYZIR> box_filter;
-  int x1 = center[0] - cube_side_length[0] / 2;
-  int x2 = center[0] + cube_side_length[0] / 2;
-  int y1 = center[1] - cube_side_length[1] / 2;
-  int y2 = center[1] + cube_side_length[1] / 2;
-  int z1 = center[2] - cube_side_length[2] / 2;
-  int z2 = center[2] + cube_side_length[2] / 2;
+void box_filter(const PointCloud::ConstPtr& input,
+                const PointCloud::Ptr& output,
+                const Point& center,
+                const std::vector<float>& cube_side_length) {
+  pcl::CropBox<pcl::PointXYZI> box_filter;
+  double x1 = center[0] - cube_side_length[0] / 2.;
+  double x2 = center[0] + cube_side_length[0] / 2.;
+  double y1 = center[1] - cube_side_length[1] / 2.;
+  double y2 = center[1] + cube_side_length[1] / 2.;
+  double z1 = center[2] - cube_side_length[2] / 2.;
+  double z2 = center[2] + cube_side_length[2] / 2.;
   box_filter.setMin(Eigen::Vector4f(x1, y1, z1, 1.0));
   box_filter.setMax(Eigen::Vector4f(x2, y2, z2, 1.0));
   box_filter.setInputCloud(input);
@@ -37,7 +33,7 @@ void box_filter(const Point& center,
 void intensity_filter(float low_bound, float upper_bound,
                       const PointCloud::ConstPtr& input,
                       const PointCloud::Ptr& output) {
-  pcl::PassThrough<velodyne_pointcloud::PointXYZIR> pass;
+  pcl::PassThrough<pcl::PointXYZI> pass;
 
   // range settings
   pass.setInputCloud(input);
@@ -48,23 +44,22 @@ void intensity_filter(float low_bound, float upper_bound,
 
 
 void plane_filter(const PointCloud::ConstPtr& input,
-                  const PointCloud::Ptr& output) {
+                  const PointCloud::Ptr& output,
+                  const double distance_threshold,
+                  const bool non_plane) {
   // Plane-Fitting
-  pcl::PointCloud<pcl::PointXYZ>::Ptr temp_points(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::copyPointCloud(*input, *temp_points);
-
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
   // Create the segmentation object
-  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  pcl::SACSegmentation<pcl::PointXYZI> seg;
   // Optional
   seg.setOptimizeCoefficients(true);
   // Mandatory
   seg.setModelType(pcl::SACMODEL_PLANE);
   seg.setMethodType(pcl::SAC_RANSAC);
-  seg.setDistanceThreshold(0.03);
+  seg.setDistanceThreshold(distance_threshold);
 
-  seg.setInputCloud(temp_points);
+  seg.setInputCloud(input);
   seg.segment(*inliers, *coefficients);
 
   if (inliers->indices.size() == 0) {
@@ -73,67 +68,11 @@ void plane_filter(const PointCloud::ConstPtr& input,
   }
 
   PointCloud::Ptr plane_filtered_points(new PointCloud);
-  pcl::ExtractIndices<velodyne_pointcloud::PointXYZIR> extract;
+  pcl::ExtractIndices<pcl::PointXYZI> extract;
+  extract.setNegative(non_plane);
   extract.setInputCloud(input);
   extract.setIndices(inliers);
   extract.filter(*output);
-}
-
-
-double xy_distance(const Point& p1) {
-  const double dx = p1.x();
-  const double dy = p1.y();
-  return sqrt(dx * dx + dy * dy);
-}
-
-
-std::vector<LineData> line_classifier(const PointCloud::ConstPtr& input) {
-  std::vector<LineData> lines;
-  for (size_t i = 0; i < input->points.size(); ++i) {
-    int pos = 0;
-    if (lines.empty()) {
-      LineData line;
-      line.set_id(input->points[i].ring);
-      line.set_stamp(input->header.stamp);
-      lines.push_back(line);
-      Point p_new(input->points[i].x,
-                  input->points[i].y,
-                  input->points[i].z);
-      lines[pos].add_point(p_new, input->points[i].intensity);
-      lines[pos].reserve_point(input->points.size());
-      continue;
-    }
-    // For loop: determine the point shall be classified into which line
-    for (size_t j = 0; j < lines.size(); j++) {
-      if (input->points[i].ring == lines[j].get_id()) {
-        pos = j;
-        break;
-      }
-      if (input->points[i].ring < lines[j].get_id()) {
-        pos = j;
-        LineData line;
-        line.set_id(input->points[i].ring);
-        line.set_stamp(input->header.stamp);
-        lines.insert(lines.begin() + pos, line);
-        lines[pos].reserve_point(input->points.size());
-        break;
-      }
-      if (j == lines.size() - 1) {
-        pos = j + 1;
-        LineData line;
-        line.set_id(input->points[i].ring);
-        line.set_stamp(input->header.stamp);
-        lines.push_back(line);
-        lines[pos].reserve_point(input->points.size());
-        break;
-      }
-    }
-    Point p_new(input->points[i].x,
-                input->points[i].y,
-                input->points[i].z);
-    lines[pos].add_point(p_new, input->points[i].intensity);
-  }
-  return lines;
 }
 
 
@@ -165,30 +104,67 @@ Eigen::Vector4f Find_Normal(const PointCloud::ConstPtr& input) {
 }
 
 
-PointCloud::Ptr transform_to_pointcloud(const std::vector<LineData>& lines) {
-  PointCloud::Ptr temp(new PointCloud);
-  temp->header.frame_id = "velodyne";
-  temp->header.stamp = lines[0].get_stamp();
+void edge_extract(const PointCloud::ConstPtr& input,
+                  const PointCloud::Ptr& output,
+                  const double resolution) {
+  // Estimate rotation matrix such that the plane points facing the x-y plane
+  Eigen::Vector4f normal = Find_Normal(input);
+  if (!std::isfinite(normal[0])) {
+    std::cout << "Cannot esitimate an available normal. Ignore the case!"
+              << std::endl;
+    return;
+  }
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*input, centroid);
 
-  temp->width = 0;
-  temp->height = 1;
-  temp->is_dense = false;
-  temp->points.resize(temp->width * temp->height);
-  int i = 0;
-  for (auto l : lines) {
-    int j = 0;
-    std::vector<std::pair<Point, int>> l_ = l.get_line();
-    temp->width += l_.size();
-    temp->points.resize(temp->width * temp->height);
-    for (i; i < temp->points.size(); i++) {
-      temp->points[i].x = l_[j].first.x();
-      temp->points[i].y = l_[j].first.y();
-      temp->points[i].z = l_[j].first.z();
-      temp->points[i].intensity = l_[j].second;
-      temp->points[i].ring = l.get_id();
-      j++;
+  Eigen::Vector4f v_Z{0, 0, 1, 0};
+  Vector3 normal_(normal[0], normal[1], normal[2]);
+  Vector3 v_Z_(v_Z[0], v_Z[1], v_Z[2]);
+  Vector3 k_ = normal_.cross(v_Z_);
+
+  double alpha = std::acos(normal_.dot(v_Z_)/(normal_.norm()*v_Z_.norm()));
+
+  // Compute one point at the intersection of board plane and X-Y plane
+  Vector3 m_ = normal_.cross(k_);
+  double d = (0 - centroid[2])/m_[2];
+  Point rot_point(0, 0, 0);
+  rot_point[0] = centroid[0] + m_[0] * d;
+  rot_point[1] = centroid[1] + m_[1] * d;
+
+  // Rotate an angle alpha alone the intersection of board plane and X-Y plane
+  Eigen::Matrix4f rot_matrix = rot_mat(rot_point, k_.normalized(), alpha);
+
+  // Sort points by its azimuth, and choose the farest points as edge points
+  PointCloud::Ptr transformed_cloud(new PointCloud);
+  pcl::transformPointCloud(*input, *transformed_cloud, rot_matrix);
+
+  int div = 360 / resolution;
+  double c_x = centroid[0];
+  double c_y = centroid[1];
+  std::vector<std::pair<int, double>> edge_points;
+  for (int i = 0; i < div; i++)
+    edge_points.push_back(std::make_pair(-1, 0));
+  for (int i = 0; i < input->points.size(); i++) {
+    double x = transformed_cloud->points[i].x - c_x;
+    double y = transformed_cloud->points[i].y - c_y;
+    double deg = RadToDeg(std::atan2(y, x)) + 180;
+    double distance = sqrt(x*x + y*y);
+    int d = deg / resolution;
+    if (edge_points[d].first == -1 || edge_points[d].second < distance) {
+      edge_points[d].first = i;
+      edge_points[d].second = distance;
     }
   }
-  return temp;
+
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+  for (auto ep : edge_points) {
+    if (ep.first != -1)
+      inliers->indices.push_back(ep.first);
+  }
+  pcl::ExtractIndices<pcl::PointXYZI> extract;
+  extract.setInputCloud(input);
+  extract.setIndices(inliers);
+  extract.setNegative(false);
+  extract.filter(*output);
 }
 }  // namespace model_fitting

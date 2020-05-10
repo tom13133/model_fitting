@@ -30,15 +30,15 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
+#include <model.hpp>
 #include <types.hpp>
-#include <line.hpp>
 
 namespace model_fitting {
 // Given a centroid, discard points outside certain size cube region
-void box_filter(const Point& center,
-                const std::vector<float>& cube_side_length,
-                const PointCloud::ConstPtr& input,
-                const PointCloud::Ptr& output);
+void box_filter(const PointCloud::ConstPtr& input,
+                const PointCloud::Ptr& output,
+                const Point& center,
+                const std::vector<float>& cube_side_length);
 
 // Given intesity low/upper bound, discard points outside the bound
 void intensity_filter(float low_bound,
@@ -48,17 +48,15 @@ void intensity_filter(float low_bound,
 
 // Given input cloud, output plane cloud
 void plane_filter(const PointCloud::ConstPtr& input,
-                  const PointCloud::Ptr& output);
-
-// Compute distance but neglecting z axis information
-double xy_distance(const Point& p1);
-
-// Sort target cloud into lines by the information of rings
-std::vector<LineData> line_classifier(const PointCloud::ConstPtr& input);
+                  const PointCloud::Ptr& output,
+                  const double distance_threshold,
+                  const bool non_plane);
 
 // Find the normal vector or triangle board
 Eigen::Vector4f Find_Normal(const PointCloud::ConstPtr& input);
 
-// Transform lines into a pointcloud
-PointCloud::Ptr transform_to_pointcloud(const std::vector<LineData>& lines);
+// Extract edge points of a plane
+void edge_extract(const PointCloud::ConstPtr& input,
+                  const PointCloud::Ptr& output,
+                  const double resolution);
 }  // namespace model_fitting

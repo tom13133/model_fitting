@@ -3,19 +3,20 @@
 #include <pcl/common/centroid.h>
 #include <pcl/common/transforms.h>
 #include <pcl/conversions.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/impl/extract_indices.hpp>
 #include <ros/package.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <visualization_msgs/Marker.h>
 
 #include <LidarProcessor.hpp>
-
+#include <ransac.hpp>
 
 namespace model_fitting {
 LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   p_nh = nh;
 
   filtered_points_pub = p_nh->advertise<PointCloud>("filtered_points", 1, true);
-  plane_points_pub = p_nh->advertise<PointCloud>("plane_points", 1, true);
   target_points_pub = p_nh->advertise<PointCloud>("target_points", 1, true);
   edge_points_pub = p_nh->advertise<PointCloud>("edge_points", 1, true);
 
@@ -44,8 +45,8 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
 
   // open file and save the processed target point
   outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
-  outfile_l << "time_stamp, c_x1, c_y1, c_z1, c_x2, c_y2, c_z2,"
-            << " t_x, t_y, t_z, r_x, r_y, r_z, l_x, l_y, l_z" << std::endl;
+  outfile_l << "time_stamp, c_x, c_y, c_z, t_x, t_y, t_z, r_x, r_y, r_z"
+            << ", l_x, l_y, l_z, c_xx, c_yy, c_zz" << std::endl;
 }
 
 
@@ -59,6 +60,8 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
 
   topic_frame_lidar = msg.header.frame_id;
   // Lidar pointcloud processing
+  PointCloud::Ptr non_ground_cloud(new PointCloud);
+  plane_filter(cloud, non_ground_cloud, 0.1, true);
 
   PointCloud::Ptr box_filtered_points(new PointCloud);
   // Use box filter(tracking) to filter pointcloud
@@ -70,10 +73,10 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                    color_white,
                                                    topic_frame_lidar);
   cube_pub.publish(box_bound);
-  box_filter(Point(center[0], center[1], center[2]),
-              side_length,
-              cloud,
-              box_filtered_points);
+  box_filter(non_ground_cloud,
+             box_filtered_points,
+             Point(center[0], center[1], center[2]),
+             side_length);
   if (box_filtered_points->points.size() == 0) {
     ROS_INFO("All points has been filtered(situation 1): After pass-filtering, no one left.");
     return;
@@ -89,9 +92,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   }
 
   if (cloud_size[1] > cloud_size[0] * 1.5) {
-    std::cerr << "Two set of target points. Ignore the case!" << std::endl;
-    cloud_size[1] = cloud_size[0];
-    return;
+    std::cerr << "Warning! Two set of target points." << std::endl;
   }
 
   // Intensity filter
@@ -107,88 +108,54 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   }
 
   // Warning: filtered cloud size is larger than 3000
-  if (intensity_filtered_points->points.size() > 3000) {
+  if (intensity_filtered_points->points.size() > 3000
+      || intensity_filtered_points->points.size() < 30) {
     std::cout << "The number of target points is "
               << intensity_filtered_points->points.size()
-              << "(> 3000), please check if the extraction of target points is success."
+              << "(> 3000 or < 30), please check if the extraction of target points is success."
               << std::endl;
   }
-
-  filtered_points_pub.publish(intensity_filtered_points);
-
-  // Classify pointcloud into different line by using ring information
-  std::vector<LineData> lines = line_classifier(intensity_filtered_points);
-  std::reverse(lines.begin(), lines.end());
-  purify(lines);
-
-  // As the number of lines is less than 3, the program discard the case
-  if (lines.size() < 3) {
-    ROS_INFO("Line size less than 3. Ignore the case! (cloud size = %lu)",
-                                        intensity_filtered_points->points.size());
-    return;
+  PointCloud::Ptr plane_cloud(new PointCloud);
+  PointCloud::Ptr board_cloud(new PointCloud);
+  plane_filter(intensity_filtered_points, plane_cloud, 0.03, false);
+  std::vector<Point> data;
+  for (int i = 0; i < plane_cloud->points.size(); i++) {
+    data.push_back(Point(plane_cloud->points[i].x, plane_cloud->points[i].y, plane_cloud->points[i].z));
   }
 
-  // Perform plane-fitting to extract board points
-  PointCloud::Ptr target_points = transform_to_pointcloud(lines);
-  target_points_pub.publish(target_points);
+  // Outlier rejection
+  std::vector<int> inliers;
+  ransac_cpp::Ransac ransac(data);
+  ransac.setMaxIterations(1000);
+  ransac.setDistanceThreshold(ce_length);
+  ransac.setProbability(0.99);
+  ransac.computeModel();
+  inliers = ransac.getInliers();
+  pcl::PointIndices::Ptr inliers_(new pcl::PointIndices);
+  inliers_->indices = inliers;
 
-  PointCloud::Ptr plane_points(new PointCloud);
-  plane_filter(target_points, plane_points);
-  plane_points_pub.publish(plane_points);
+  pcl::ExtractIndices<pcl::PointXYZI> extract;
+  extract.setInputCloud(plane_cloud);
+  extract.setIndices(inliers_);
+  extract.setNegative(false);
+  extract.filter(*board_cloud);
 
-  lines = line_classifier(plane_points);
-
-
-  std::reverse(lines.begin(), lines.end());
-  purify(lines);
-  Eigen::Vector4f normal = Find_Normal(plane_points);
+  Eigen::Vector4f normal = Find_Normal(board_cloud);
   if (!std::isfinite(normal[0])) {
     std::cout << "Cannot esitimate an available normal. Ignore the case!"
               << std::endl;
     return;
   }
-  // Compute average PointCloud centroid
-  Point centroid = compute3Dcentroid(lines);
-  Vector3 color_red(1, 0, 0);  // (r,g,b)
-  visualization_msgs::Marker centroid_marker = mark_centroid(centroid,
-                                                             color_red,
-                                                             topic_frame_lidar);
-  centroid_pub.publish(centroid_marker);
+
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*board_cloud, centroid);
+  std::vector<float> new_center{static_cast<float>(centroid[0]),
+                                static_cast<float>(centroid[1]),
+                                static_cast<float>(centroid[2])};
+  p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
 
 
-  // As the line size is larger than 10,
-  // the program didn't perform model fitting due to the computation load
-  if (lines.size() > 12) {
-    std::cout << "Line size " << lines.size() << " > 12."
-              << "Compute the centroid without model-fitting." << std::endl;
-    outfile_l << msg.header.stamp
-              << ", " << centroid[0]-normal[0]*depth
-              << ", " << centroid[1]-normal[1]*depth
-              << ", " << centroid[2]-normal[2]*depth
-              << ", " << centroid[0]
-              << ", " << centroid[1]
-              << ", " << centroid[2]
-              << ", " << '0' << ", " << '0' << ", " << '0'
-              << ", " << '0' << ", " << '0' << ", " << '0'
-              << ", " << '0' << ", " << '0' << ", " << '0' << std::endl;
-
-    Point pc(Point(centroid[0], centroid[1], centroid[2]));
-    visualization_msgs::Marker normal_arrow = print_Normal(pc,
-                                                           normal,
-                                                           topic_frame_lidar,
-                                                           depth);
-    normal_pub.publish(normal_arrow);
-
-    std::vector<float> new_center{static_cast<float>(centroid[0]),
-                                  static_cast<float>(centroid[1]),
-                                  static_cast<float>(centroid[2])};
-    p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
-    return;
-  }
-
-  // Transform the board plane aligning the X-Y plane
   Eigen::Vector4f v_Z{0, 0, 1, 0};
-
   Vector3 normal_(normal[0], normal[1], normal[2]);
   Vector3 v_Z_(v_Z[0], v_Z[1], v_Z[2]);
   Vector3 k_ = normal_.cross(v_Z_);
@@ -205,34 +172,28 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   // Rotate an angle alpha alone the intersection of board plane and X-Y plane
   Eigen::Matrix4f rot_matrix = rot_mat(rot_point, k_.normalized(), alpha);
 
-  // Extract edge points
-  std::vector<LineData> edge_lines;
-  edge_lines = edge_extract(lines);
+  PointCloud::Ptr transformed_cloud(new PointCloud);
+  PointCloud::Ptr edge_points(new PointCloud);
+  PointCloud::Ptr transformed_edge_points(new PointCloud);
+  std::vector<Vector2> edge_points_;
 
-  PointCloud::Ptr edge_points = transform_to_pointcloud(edge_lines);
+  edge_extract(board_cloud, edge_points, 30);
+  pcl::transformPointCloud(*edge_points, *transformed_edge_points, rot_matrix);
+
+  filtered_points_pub.publish(plane_cloud);
+  target_points_pub.publish(board_cloud);
   edge_points_pub.publish(edge_points);
 
-  // Transform to X-Y plane
-  edge_lines = transformLines(rot_matrix, edge_lines);
+  std::cout << "origin: " << board_cloud->points.size()
+            << ", edge: " << edge_points->points.size() << std::endl;
 
-  int origin_point_size = 0;
-  int edge_point_size = 0;
-
-  for (auto l : lines) {
-    origin_point_size += l.get_size();
+  for (int i = 0; i < edge_points->points.size(); i++) {
+    edge_points_.push_back(Vector2(transformed_edge_points->points[i].x,
+                                   transformed_edge_points->points[i].y));
   }
-
-  for (auto l : edge_lines) {
-    edge_point_size += l.get_size();
-  }
-
-  std::cout << "origin: " << origin_point_size
-            << ", edge: " << edge_point_size << std::endl;
-
+  Eigen::Vector4f centroid_xy = rot_matrix * centroid;
   // Model fitting in X-Y plane
-  lines = transformLines(rot_matrix, lines);
-  Point centroid_xy = compute3Dcentroid(lines);
-  Vector3 x_y_phi = model_fitting_2D(edge_lines,
+  Vector3 x_y_phi = model_fitting_2D(edge_points_,
                                      Vector2(centroid_xy[0], centroid_xy[1]),
                                      0);
 
@@ -262,35 +223,45 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                  topic_frame_lidar);
   model_pub.publish(model);
 
+  Vector3 color_red(1, 0, 0);  // (r,g,b)
+  visualization_msgs::Marker centroid_marker = mark_centroid(Point(centroid[0], centroid[1], centroid[2]),
+                                                             color_red,
+                                                             topic_frame_lidar);
+
+  centroid_pub.publish(centroid_marker);
+
   Point model_centroid(0, 0, 0);
   for (auto p : tip_points_fit) {
     model_centroid += p / tip_points_fit.size();
-  }
-  if ((model_centroid-centroid).norm() > 0.2) {
-    std::cout << "Difference between centroid and model centroid is larger than 0.2 m, ignore this case." << std::endl;
-    return;
   }
   Vector3 color_blue(0, 0, 1);  // (r,g,b)
   visualization_msgs::Marker model_centroid_marker = mark_centroid(model_centroid,
                                                                    color_blue,
                                                                    topic_frame_lidar);
   model_centroid_pub.publish(model_centroid_marker);
+  if ((model_centroid - Point(centroid[0], centroid[1], centroid[2])).norm() > 0.2) {
+    std::cout << "Difference between centroid and model centroid is larger than 0.2 m, ignore this case." << std::endl;
+    return;
+  }
 
   // Model-fitting accomplished. Save the data.
   std::cout << "Good, save lidar data." << std::endl;
   outfile_l << msg.header.stamp
-            << ", " << model_centroid[0]-normal[0]*depth
-            << ", " << model_centroid[1]-normal[1]*depth
-            << ", " << model_centroid[2]-normal[2]*depth
             << ", " << model_centroid[0]
             << ", " << model_centroid[1]
             << ", " << model_centroid[2]
-            << ", " << tip_points_fit[0][0] << ", " << tip_points_fit[0][1]
+            << ", " << tip_points_fit[0][0]
+            << ", " << tip_points_fit[0][1]
             << ", " << tip_points_fit[0][2]
-            << ", " << tip_points_fit[1][0] << ", " << tip_points_fit[1][1]
+            << ", " << tip_points_fit[1][0]
+            << ", " << tip_points_fit[1][1]
             << ", " << tip_points_fit[1][2]
-            << ", " << tip_points_fit[2][0] << ", " << tip_points_fit[2][1]
-            << ", " << tip_points_fit[2][2] << std::endl;
+            << ", " << tip_points_fit[2][0]
+            << ", " << tip_points_fit[2][1]
+            << ", " << tip_points_fit[2][2]
+            << ", " << model_centroid[0] - normal[0]*depth
+            << ", " << model_centroid[1] - normal[1]*depth
+            << ", " << model_centroid[2] - normal[2]*depth << std::endl;
 
   Point pc(Point(model_centroid[0], model_centroid[1], model_centroid[2]));
   visualization_msgs::Marker normal_arrow = print_Normal(pc,
@@ -298,11 +269,6 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                          topic_frame_lidar,
                                                          depth);
   normal_pub.publish(normal_arrow);
-
-  std::vector<float> new_center{static_cast<float>(model_centroid[0]),
-                                static_cast<float>(model_centroid[1]),
-                                static_cast<float>(model_centroid[2])};
-  p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
 }
 
 LidarProcessor::~LidarProcessor() {
