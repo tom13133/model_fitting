@@ -65,4 +65,8 @@ After bag is finished, one output file **lidar_data_raw.csv** would be generated
 (**List order**: time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz)   
 * Notice that (c_x, c_y, c_y) is the center of the triangle (square) model, and (c_xx, c_yy, c_zz) is the center of the corner reflector.  
 
+* Result:
+<img src="https://github.com/tom13133/model_fitting/blob/master/images/triangle.png" width="300">
+<img src="https://github.com/tom13133/model_fitting/blob/master/images/square.png" width="300">
+
 
