@@ -1,6 +1,6 @@
-# ROS package to accomplish target center estimation.
+# ROS package to accomplish planar model-fitting.
 
-This package is to estimate the target center from ***Velodyne LiDAR*** messages.  
+This package is to accomplish planar model-fitting given a triangle or square shaped planar point cloud.  
 
 ## Dependencies
 1. Eigen3
@@ -8,18 +8,18 @@ This package is to estimate the target center from ***Velodyne LiDAR*** messages
 3. Sophus
 
 ## Content
-1. Target center from Velodyne LiDAR (sensor_msgs::PointCloud2)
+1. Model fitting (sensor_msgs::PointCloud2)
 
-## 1. Target center from Velodyne LiDAR (sensor_msgs::PointCloud2)
+## 1. Model fitting (sensor_msgs::PointCloud2)
 
 ### (a) Setup
-Before we start running the estimation module, there is one configuration files needed to be specfied.  
+Before we start running the model-fitting module, there is one configuration file needed to be specfied.  
 We use ROS Parameter Server to set the configurations.  
 
 1. path:  
 Their path are  
 ```
-~/target_processing/config/lidar_config.yaml
+~/model_fitting/config/lidar_config.yaml
 ```
 
 2. format:  
@@ -44,13 +44,13 @@ Their path are
 **box_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
 **intensity_filter_set** is used to extract target points from pointcloud by predifining a intensity region.  
 **target_size_set** is the specification of target ("triangle" or "square"). (unit: m)  
-**lidar_resolution_set** is the specification of Velodyne LiDAR resolution (unit: deg).  
+**lidar_resolution_set** is the specification of LiDAR resolution (unit: deg).  
 
 
 ### (b) Getting Started.
 1. Launch the node  
 ```
-roslaunch target_processing lidar.launch
+roslaunch model_fitting lidar.launch
 ```
 
 2. Overlook into the X-Y plane, observe and use **rosparam set** to specify the possible location of target.  
@@ -61,8 +61,8 @@ rosparam set /LidarProcessor_node/passthrough_filter_set/center [7,5,0]
 Or set the location in **lidar_config.yaml** directly.  
 
 3. Play the bag, then start processing.  
-After bag is finished, one output file **lidar_data_raw.csv** would be generated in ```~/target_processing/data/```. It contains the target center and the vertices with timestamp:  
-(**List order**: time_stamp, c_x1, c_y1, c_z1, c_x2, c_y2, c_z2, vertices, ...)   
-* Notice that (c_x1, c_y1, c_y2) is the center of the corner reflector, and (c_x2, c_y2, c_z2) is the center of the triangle board  
+After bag is finished, one output file **lidar_data_raw.csv** would be generated in ```~/model_fitting/data/```. It contains the target center and the vertices with timestamp:  
+(**List order**: time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz)   
+* Notice that (c_x, c_y, c_y) is the center of the triangle (square) model, and (c_xx, c_yy, c_zz) is the center of the corner reflector.  
 
 

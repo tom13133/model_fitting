@@ -45,8 +45,7 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
 
   // open file and save the processed target point
   outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
-  outfile_l << "time_stamp, c_x, c_y, c_z, t_x, t_y, t_z, r_x, r_y, r_z"
-            << ", l_x, l_y, l_z, c_xx, c_yy, c_zz" << std::endl;
+  outfile_l << "time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz" << std::endl;
 }
 
 
@@ -304,19 +303,15 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   outfile_l << msg.header.stamp
             << ", " << model_centroid[0]
             << ", " << model_centroid[1]
-            << ", " << model_centroid[2]
-            << ", " << tip_points_fit[0][0]
-            << ", " << tip_points_fit[0][1]
-            << ", " << tip_points_fit[0][2]
-            << ", " << tip_points_fit[1][0]
-            << ", " << tip_points_fit[1][1]
-            << ", " << tip_points_fit[1][2]
-            << ", " << tip_points_fit[2][0]
-            << ", " << tip_points_fit[2][1]
-            << ", " << tip_points_fit[2][2]
-            << ", " << model_centroid[0] - normal[0]*depth
-            << ", " << model_centroid[1] - normal[1]*depth
-            << ", " << model_centroid[2] - normal[2]*depth << std::endl;
+            << ", " << model_centroid[2];
+  for (int i = 0; i < tip_points_fit.size(); i++) {
+    outfile_l << ", " << tip_points_fit[i][0]
+              << ", " << tip_points_fit[i][1]
+              << ", " << tip_points_fit[i][2];
+  }
+  outfile_l << ", " << model_centroid[0] - normal[0] * depth
+            << ", " << model_centroid[1] - normal[1] * depth
+            << ", " << model_centroid[2] - normal[2] * depth << std::endl;
 
   Point pc(Point(model_centroid[0], model_centroid[1], model_centroid[2]));
   visualization_msgs::Marker normal_arrow = print_Normal(pc,
