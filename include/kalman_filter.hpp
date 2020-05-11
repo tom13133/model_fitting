@@ -1,10 +1,16 @@
-#ifndef KALMAN_FILTER_H_
-#define KALMAN_FILTER_H_
+#ifndef INCLUDE_KALMAN_FILTER_HPP_
+#define INCLUDE_KALMAN_FILTER_HPP_
 #include "Eigen/Dense"
-#include <ros/ros.h>
 
-class KalmanFilter
-{
+inline double DegToRad(const double deg) {
+  return deg * M_PI / 180.;
+}
+
+inline double RadToDeg(const double rad) {
+  return rad * 180. / M_PI;
+}
+
+class KalmanFilter {
  public:
   KalmanFilter();
 
@@ -12,14 +18,14 @@ class KalmanFilter
 
   /**
    * Init Initializes Kalman filter
-   * @param x_in Initial state
-   * @param u_in Initial control-input
-   * @param P Initial state covariance
-   * @param F Transition matrix
-   * @param B Control-input matrix
-   * @param Q Process covariance matrix
-   * @param H Measurement matrix
-   * @param R Measurement covariance matrix
+   * x_in Initial state
+   * u_in Initial control-input
+   * P Initial state covariance
+   * F Transition matrix
+   * B Control-input matrix
+   * Q Process covariance matrix
+   * H Measurement matrix
+   * R Measurement covariance matrix
    */
   void Init(const Eigen::VectorXd &x_in,
             const Eigen::VectorXd &u_in,
@@ -29,27 +35,30 @@ class KalmanFilter
             const Eigen::MatrixXd &Q,
             const Eigen::MatrixXd &H,
             const Eigen::MatrixXd &R,
-            const double t); 
+            const double t);
 
   void Predict();
 
-  // @param z measurement
+  // z measurement
   void Update(const Eigen::VectorXd &z);
 
   void set_x(const Eigen::VectorXd &x_in);
-
+  void set_F(const Eigen::MatrixXd &F);
+  void set_H(const Eigen::MatrixXd &H);
+  void set_Q(const Eigen::MatrixXd &Q);
+  void set_R(const Eigen::MatrixXd &R);
   void set_t(const double t_new);
 
-  void set_F(const Eigen::MatrixXd &F);
-
   Eigen::VectorXd get_x();
+  Eigen::MatrixXd get_P();
   double get_t();
+  bool activate();
 
  private:
   // state vector
   Eigen::VectorXd x_;
   // control input vector
-  Eigen::VectorXd u_;  
+  Eigen::VectorXd u_;
   // state covariance matrix
   Eigen::MatrixXd P_;
   // state transistion matrix
@@ -65,6 +74,6 @@ class KalmanFilter
   // estimate time stamp
   double t_;
 
+  bool activate_;
 };
-
-#endif 
+#endif  // INCLUDE_KALMAN_FILTER_HPP_

@@ -31,8 +31,9 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include <model.hpp>
+#include <kalman_filter.hpp>
 #include <lidar_processing.hpp>
+#include <model.hpp>
 
 namespace model_fitting {
 // Specification
@@ -82,5 +83,9 @@ class LidarProcessor {
   std::string topic_frame_lidar;
 
   std::vector<int> cloud_size;
+
+  KalmanFilter kf;
 };
+
+void kf_init(KalmanFilter& kf, const Vector3& x_y_phi, const double time);
 }  // namespace model_fitting

@@ -52,6 +52,7 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
 
 // callback function: subscribe lidar pointcloud and process
 void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
+  double current_time = msg.header.stamp.toSec();
   // Change point cloud type from sensor_msgs::PointCloud2 to pcl::PointXYZI
   pcl::PCLPointCloud2 pcl_pc2;
   pcl_conversions::toPCL(msg, pcl_pc2);
@@ -197,6 +198,60 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                      Vector2(centroid_xy[0], centroid_xy[1]),
                                      0);
 
+  if (!kf.activate()) {
+    kf_init(kf, x_y_phi, current_time);
+  } else {
+    // Predict
+    double dt = current_time - kf.get_t();
+    Eigen::MatrixXd F(6, 6);
+    F << 1, 0, 0, dt, 0, 0,
+         0, 1, 0, 0, dt, 0,
+         0, 0, 1, 0, 0, dt,
+         0, 0, 0, 1, 0, 0,
+         0, 0, 0, 0, 1, 0,
+         0, 0, 0, 0, 0, 1;
+
+    kf.set_F(F);
+    kf.Predict();
+    kf.set_t(current_time);
+    Eigen::VectorXd pred = kf.get_x();
+
+    if (std::isnan(pred[0]) || std::isnan(pred[1])
+        || std::isnan(pred[2]) || std::isnan(pred[3])
+        || std::isnan(pred[4]) || std::isnan(pred[5])) {
+      kf_init(kf, x_y_phi, current_time);
+      std::cout << "Prediction ERROR!!!" << std::endl;
+      return;
+    }
+
+    // Update
+    Eigen::VectorXd z_in(3);
+    z_in << x_y_phi[0], x_y_phi[1], x_y_phi[2];
+    kf.Update(z_in);
+    Eigen::VectorXd update = kf.get_x();
+
+    // std::cout << std::to_string(current_time) << "|"
+    //           << "(x, y, phi, vx, vy, vphi) = raw => ("
+    //           << x_y_phi[0] << ", "
+    //           << x_y_phi[1] << ", "
+    //           << x_y_phi[2] << ", none, none, none) v.s. "
+    //           << "pred => ("
+    //           << pred[0] << ", "
+    //           << pred[1] << ", "
+    //           << pred[2] << ", "
+    //           << pred[3] << ", "
+    //           << pred[4] << ", "
+    //           << pred[5] << ") v.s. "
+    //           << "update => ("
+    //           << update[0] << ", "
+    //           << update[1] << ", "
+    //           << update[2] << ", "
+    //           << update[3] << ", "
+    //           << update[4] << ", "
+    //           << update[5] << ")" << std::endl;
+    x_y_phi = Vector3(update[0], update[1], update[2]);
+  }
+
   std::vector<Vector2> tip_points_2D;
   std::string str(m_type);
   if (str.compare("triangle") == 0)
@@ -274,4 +329,48 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
 LidarProcessor::~LidarProcessor() {
   outfile_l.close();
 }
+
+void kf_init(KalmanFilter& kf, const Vector3& x_y_phi, const double time) {
+  // EKF initialization
+  double cov_x = (0.1/3)*(0.1/3);
+  double cov_y = (0.1/3)*(0.1/3);
+  double cov_phi = (DegToRad(5)/3.)*(DegToRad(5)/3.);
+  Eigen::VectorXd x_in(6), u_in(6);
+  Eigen::MatrixXd P(6, 6), F(6, 6), B(6, 6),
+                  Q(6, 6), H(3, 6), R(3, 3);
+
+  x_in << x_y_phi[0], x_y_phi[1], x_y_phi[2], 0, 0, 0;
+  u_in << 0, 0, 0, 0, 0, 0;
+  P << 1, 0, 0, 0, 0, 0,
+       0, 1, 0, 0, 0, 0,
+       0, 0, 1, 0, 0, 0,
+       0, 0, 0, 1, 0, 0,
+       0, 0, 0, 0, 1, 0,
+       0, 0, 0, 0, 0, 1;
+  F = B = P;
+
+  Eigen::MatrixXd G(6, 3), Qv(3, 3);
+  G << 0.125, 0, 0,
+       0, 0.125, 0,
+       0, 0, 0.125,
+       0.5, 0, 0,
+       0, 0.5, 0,
+       0, 0, 0.5;
+  Qv << 0.01, 0, 0,
+        0, 0.01, 0,
+        0, 0, 0.01;
+  Q = G * Qv * G.transpose();
+
+  H << 1, 0, 0, 0, 0, 0,
+       0, 1, 0, 0, 0, 0,
+       0, 0, 1, 0, 0, 0;
+
+
+  R << cov_x, 0, 0,
+       0, cov_y, 0,
+       0, 0, cov_phi;
+
+  kf.Init(x_in, u_in, P, F, B, Q, H, R, time);
+}
+
 }  // namespace model_fitting
