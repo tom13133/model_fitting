@@ -184,6 +184,7 @@ visualization_msgs::Marker mark_cube(const Point& c,
 }
 
 visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
+                                       const Vector3& color,
                                        const std::string& lidar_frame) {
   visualization_msgs::Marker line_strip;
   line_strip.header.frame_id = lidar_frame;
@@ -195,7 +196,9 @@ visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
 
   line_strip.scale.x = 0.02;
 
-  line_strip.color.r = 1;
+  line_strip.color.r = color[0];
+  line_strip.color.g = color[1];
+  line_strip.color.b = color[2];
   line_strip.color.a = 1;
 
   geometry_msgs::Point p;
@@ -377,7 +380,7 @@ Vector3 model_fitting_2D(const std::vector<Vector2>& edge_points,
 
   options.linear_solver_type = ceres::DENSE_QR;
   options.max_linear_solver_iterations = 30;
-  options.max_num_iterations = 30;
+  options.max_num_iterations = 100;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 

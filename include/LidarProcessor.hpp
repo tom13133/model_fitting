@@ -19,7 +19,8 @@
 //
 //////////////////////////////////// NOTES /////////////////////////////////////
 //
-// TODO(Yu-Han): output 4 vertices of square board
+// TODO(Yu-Han): Consider the specification parameters should be passed
+//               by function or use extern declaration directly.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -37,8 +38,6 @@
 
 namespace model_fitting {
 // Specification
-double horizontal_resolution;  // 0.16(deg)
-double vertical_resolution;  // 1.33(deg)
 const char* m_type;  // triangle or square
 double ce_length;  // length from center to endpoints
 double cr_length;
@@ -83,6 +82,8 @@ class LidarProcessor {
   std::string topic_frame_lidar;
 
   std::vector<int> cloud_size;
+
+  double edge_points_resolution;
 
   KalmanFilter kf;
 };

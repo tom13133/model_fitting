@@ -39,10 +39,7 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   nh->getParam("/LidarProcessor_node/target_size_set/reflector_edge_length", cr_length);
   depth = std::sqrt(cr_length*cr_length / 3);
 
-  // Read the specification of lidar
-  nh->getParam("/LidarProcessor/lidar_resolution_set/vertical_resolution", vertical_resolution);
-  nh->getParam("/LidarProcessor/lidar_resolution_set/horizontal_resolution", horizontal_resolution);
-
+  nh->getParam("/LidarProcessor_node/edge_points_resolution", edge_points_resolution);
   // open file and save the processed target point
   outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
   outfile_l << "time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz" << std::endl;
@@ -177,7 +174,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   PointCloud::Ptr transformed_edge_points(new PointCloud);
   std::vector<Vector2> edge_points_;
 
-  edge_extract(board_cloud, edge_points, 30);
+  edge_extract(board_cloud, edge_points, edge_points_resolution);
   pcl::transformPointCloud(*edge_points, *transformed_edge_points, rot_matrix);
 
   filtered_points_pub.publish(plane_cloud);
@@ -193,10 +190,11 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   }
   Eigen::Vector4f centroid_xy = rot_matrix * centroid;
   // Model fitting in X-Y plane
+  double pre_time = ros::Time::now().toSec();
   Vector3 x_y_phi = model_fitting_2D(edge_points_,
                                      Vector2(centroid_xy[0], centroid_xy[1]),
                                      0);
-
+  std::cout << "Cost time: " << (ros::Time::now().toSec() - pre_time) << std::endl;
   if (!kf.activate()) {
     kf_init(kf, x_y_phi, current_time);
   } else {
@@ -274,6 +272,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
 
   // visualize triangle model and its centroid on rviz
   visualization_msgs::Marker model = print_Model(tip_points_fit,
+                                                 color_white,
                                                  topic_frame_lidar);
   model_pub.publish(model);
 

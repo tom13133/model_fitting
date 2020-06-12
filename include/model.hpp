@@ -78,6 +78,7 @@ visualization_msgs::Marker mark_cube(const Point& c,
 
 // Print polygon model on rviz given all endpoints
 visualization_msgs::Marker print_Model(const std::vector<Point>& pts,
+                                       const Vector3& color,
                                        const std::string& lidar_frame);
 
 // Print computed normal of triangle model on rviz

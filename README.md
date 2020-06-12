@@ -36,15 +36,13 @@ Their path are
 >   model_type: triangle  
 >   center_to_end_length: 0.6  
 >   reflector_edge_length: 0.282843  
-> lidar_resolution_set:  
->   vertical_resolution: 1.33  
->   horizontal_resolution: 0.16  
+> edge_points_resolution: 5
 
 **topic_name_lidar** specify the topic name for subsciber.  
 **box_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
 **intensity_filter_set** is used to extract target points from pointcloud by predifining a intensity region.  
 **target_size_set** is the specification of target ("triangle" or "square"). (unit: m)  
-**lidar_resolution_set** is the specification of LiDAR resolution (unit: deg).  
+**edge_points_resolution** is the resolution for extracting edge points, i.e, the board points are segmented into different sets and the farest point from board centroid in one set is considered as edge point.(unit: deg).  
 
 
 ### (b) Getting Started.
