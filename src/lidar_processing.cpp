@@ -137,11 +137,13 @@ void edge_extract(const PointCloud::ConstPtr& input,
   // Sort points by its azimuth, and choose the farest points as edge points
   PointCloud::Ptr transformed_cloud(new PointCloud);
   pcl::transformPointCloud(*input, *transformed_cloud, rot_matrix);
-
+  Eigen::Vector4f centroid_2d;
+  pcl::compute3DCentroid(*transformed_cloud, centroid_2d);
   int div = 360 / resolution;
-  double c_x = centroid[0];
-  double c_y = centroid[1];
+  double c_x = centroid_2d[0];
+  double c_y = centroid_2d[1];
   std::vector<std::pair<int, double>> edge_points;
+  double max_distance = 0;
   for (int i = 0; i < div; i++)
     edge_points.push_back(std::make_pair(-1, 0));
   for (int i = 0; i < input->points.size(); i++) {
@@ -153,12 +155,13 @@ void edge_extract(const PointCloud::ConstPtr& input,
     if (edge_points[d].first == -1 || edge_points[d].second < distance) {
       edge_points[d].first = i;
       edge_points[d].second = distance;
+      max_distance = std::max(max_distance, distance);
     }
   }
 
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
   for (auto ep : edge_points) {
-    if (ep.first != -1)
+    if (ep.first != -1 && ep.second > max_distance/3)
       inliers->indices.push_back(ep.first);
   }
   pcl::ExtractIndices<pcl::PointXYZI> extract;

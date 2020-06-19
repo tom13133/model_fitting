@@ -10,5 +10,5 @@
     <node name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name)" output="screen" required="true">
         <rosparam  command="load" file="$(find model_fitting)/config/lidar_config.yaml"/>
     </node>
-
+ <node type="rviz" name="rviz" pkg="rviz" args="-d /home/ee904-itri-white/.rviz/model.rviz" />
 </launch>

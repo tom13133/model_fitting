@@ -1,0 +1,6 @@
+<!-- Filename: lidar.launch -->
+<!-- Fileinfo: launch LidarProcessor_node -->
+
+<launch>
+ <node type="rviz" name="rviz" pkg="rviz" args="-d /home/ee904-itri-white/.rviz/model.rviz" />
+</launch>

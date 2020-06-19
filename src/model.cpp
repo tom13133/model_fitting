@@ -380,7 +380,7 @@ Vector3 model_fitting_2D(const std::vector<Vector2>& edge_points,
 
   options.linear_solver_type = ceres::DENSE_QR;
   options.max_linear_solver_iterations = 30;
-  options.max_num_iterations = 100;
+  options.max_num_iterations = 50;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 

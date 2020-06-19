@@ -13,6 +13,24 @@
 #include <ransac.hpp>
 
 namespace model_fitting {
+
+int isTarget2(const std::vector<measurement>& center,
+              const std::vector<float>& searching_region,
+              const esr_msgs::Track& msg) {
+  float a = DegToRad(msg.azimuth);
+  float x = msg.range * std::cos(a);
+  float y = msg.range * std::sin(a);
+  for (auto c : center) {
+    if (x <= c.point_.x() + searching_region[0]/2.
+       && x >= c.point_.x() - searching_region[0]/2.
+       && y <= c.point_.y() + searching_region[1]/2.
+       && y >= c.point_.y() - searching_region[1]/2.) {
+     return c.id_;
+    }
+  }
+  return -1;
+}
+
 LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   p_nh = nh;
 
@@ -43,11 +61,56 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   // open file and save the processed target point
   outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
   outfile_l << "time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz" << std::endl;
+
+  std::vector<float> translation;
+  std::vector<float> rotation;
+  p_nh->getParam("/LidarProcessor_node/T_lr/translation", translation);
+  p_nh->getParam("/LidarProcessor_node/T_lr/rotation", rotation);
+  Point p_radar = Point(translation[0], translation[1], translation[2]);
+  auto r = AngleAxis(DegToRad(rotation[0]), Vector3::UnitZ()) *
+           AngleAxis(DegToRad(rotation[1]), Vector3::UnitY()) *
+           AngleAxis(DegToRad(rotation[2]), Vector3::UnitX());
+  Orientation o_radar = Orientation(r);
+  T_lr = Pose(o_radar, p_radar);
+  p_nh->getParam("/LidarProcessor_node/topic_name_radar", topic_name_radar);
+  topic_frame_radar = "esr_can1_frame";
+  lidar_data.resize(1);
+  radar_data.resize(1);
+  searching_region = std::vector<float> {3, 3};
+  radar_sub = p_nh->subscribe(topic_name_radar, 1000, &LidarProcessor::cb_radar, this);
+  rcs_pub = p_nh->advertise<PointCloud>("rcs_points", 1, true);
+  p_nh->getParam("/LidarProcessor_node/sid", sid);
+  p_nh->getParam("/LidarProcessor_node/box_filter_set/center", center);
+
+  searching_centers.clear();
+  Point p_l(center[0], center[1], 0);
+  Point p_r = T_lr.inverse() * p_l;
+
+  double rr = p_r.norm();
+  double aa = std::atan2(p_r.y(), p_r.x());
+  measurement p_c {0,
+                   0,
+                   Point(rr * std::cos(aa), rr * std::sin(aa), 0)};
+  searching_centers.push_back(p_c);
 }
 
 
 // callback function: subscribe lidar pointcloud and process
 void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
+
+  Orientation q_lr = T_lr.unit_quaternion();
+  transform.setOrigin(tf::Vector3(T_lr.translation().x(),
+                                  T_lr.translation().y(),
+                                  T_lr.translation().z()));
+  transform.setRotation(tf::Quaternion(q_lr.x(),
+                                       q_lr.y(),
+                                       q_lr.z(),
+                                       q_lr.w()));
+  br.sendTransform(tf::StampedTransform(transform,
+                                        msg.header.stamp,
+                                        msg.header.frame_id,
+                                        topic_frame_radar));
+
   double current_time = msg.header.stamp.toSec();
   // Change point cloud type from sensor_msgs::PointCloud2 to pcl::PointXYZI
   pcl::PCLPointCloud2 pcl_pc2;
@@ -150,6 +213,17 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                 static_cast<float>(centroid[1]),
                                 static_cast<float>(centroid[2])};
   p_nh->setParam("/LidarProcessor_node/box_filter_set/center", new_center);
+
+  searching_centers.clear();
+  Point p_l(centroid[0], centroid[1], centroid[2]);
+  Point p_r = T_lr.inverse() * p_l;
+
+  double r = p_r.norm();
+  double a = std::atan2(p_r.y(), p_r.x());
+  measurement p_c {0,
+                   current_time,
+                   Point(r * std::cos(a), r * std::sin(a), 0)};
+  searching_centers.push_back(p_c);
 
 
   Eigen::Vector4f v_Z{0, 0, 1, 0};
@@ -280,13 +354,17 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
   visualization_msgs::Marker centroid_marker = mark_centroid(Point(centroid[0], centroid[1], centroid[2]),
                                                              color_red,
                                                              topic_frame_lidar);
-
   centroid_pub.publish(centroid_marker);
 
   Point model_centroid(0, 0, 0);
   for (auto p : tip_points_fit) {
     model_centroid += p / tip_points_fit.size();
   }
+
+    lidar_data[0].push_back(measurement{0,
+                                            current_time,
+                                            model_centroid});
+
   Vector3 color_blue(0, 0, 1);  // (r,g,b)
   visualization_msgs::Marker model_centroid_marker = mark_centroid(model_centroid,
                                                                    color_blue,
@@ -318,6 +396,7 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                          topic_frame_lidar,
                                                          depth);
   normal_pub.publish(normal_arrow);
+  saveCorrespondences();
 }
 
 LidarProcessor::~LidarProcessor() {
@@ -366,5 +445,157 @@ void kf_init(KalmanFilter& kf, const Vector3& x_y_phi, const double time) {
 
   kf.Init(x_in, u_in, P, F, B, Q, H, R, time);
 }
+
+
+void LidarProcessor::cb_radar(const esr_msgs::Track &msg) {
+  if (radar_buffer.empty()
+      || (msg.header.stamp.toSec() - radar_buffer.back().header.stamp.toSec()) < 1e-5) {
+    radar_buffer.push_back(msg);
+  } else {
+    double current_time = radar_buffer.back().header.stamp.toSec();
+
+    // Target measurement detection and refinement
+    for (auto meas : radar_buffer) {
+      if (std::fabs(meas.azimuth) > 45)
+        continue;
+      double range = meas.range;
+      double azimuth = DegToRad(meas.azimuth);
+      double range_rate = meas.range_rate;
+
+      if (!searching_centers.empty()) {
+
+        int id = isTarget2(searching_centers, searching_region, meas);
+
+        if (id != -1) {
+          Vector3 init_v;
+          Point cur_location = Point(range * std::cos(azimuth),
+                                     range * std::sin(azimuth),
+                                     0);
+          if (radar_data[id].size() == 0 || (current_time - radar_data[id].back().time_) > 0.1) {
+            init_v = Vector3(0, 0, 0);
+          } else {
+            double time_diff = (current_time - radar_data[id].back().time_);
+            init_v = (cur_location - radar_data[id].back().point_) / time_diff;
+          }
+
+          measurement pc{id,
+                         current_time,
+                         cur_location,
+                         static_cast<double>(meas.amplitude),
+                         range_rate,
+                         init_v,
+                         true};
+          if (radar_data[id].size() == 0
+              || (pc.time_ - radar_data[id].back().time_) > 1e-5) {
+            radar_data[id].push_back(pc);
+          } else if (pc.intensity_ > radar_data[id].back().intensity_) {
+            radar_data[id].pop_back();
+            radar_data[id].push_back(pc);
+          }
+        }
+      }
+    }
+
+    for (int i = 0; i < radar_data.size(); i++) {
+      if (radar_data[i].size() == 0)
+        continue;
+      measurement new_pc{radar_data[i].back().id_,
+                         radar_data[i].back().time_,
+                         radar_data[i].back().point_,
+                         radar_data[i].back().intensity_,
+                         radar_data[i].back().range_rate_,
+                         radar_data[i].back().v_,
+                         true};
+      int count = 1;
+      for (int j = radar_data[i].size()-2; j >= 0; j--) {
+        if ((new_pc.time_- radar_data[i][j].time_) < 1e-5) {
+          new_pc.point_ += radar_data[i][j].point_;
+          new_pc.v_ += radar_data[i][j].v_;
+          count++;
+        } else {
+          new_pc.point_ /= count;
+          new_pc.v_ /= count;
+          for (int k = 0; k < count; k++) {
+            radar_data[i].pop_back();
+          }
+          radar_data[i].push_back(new_pc);
+          break;
+        }
+      }
+    }
+    if (radar_data[0].size() != 0)
+      std::cout << "RCS: " << radar_data[0].back().intensity_ << std::endl;; 
+    radar_buffer.clear();
+    radar_buffer.push_back(msg);
+  }
+}
+
+void LidarProcessor::saveCorrespondences() {
+  // Save and publish radar-LiDAR correspondences
+  int r_size = 0;
+  for (int i = 0; i < radar_data.size(); i++) {
+    r_size += radar_data[i].size();
+  }
+  PointCloud::Ptr rcs_points(new PointCloud);
+  rcs_points->width    = r_size;
+  rcs_points->height   = 1;
+  rcs_points->is_dense = false;
+  rcs_points->points.resize(rcs_points->width * rcs_points->height);
+  rcs_points->header.frame_id = topic_frame_radar;
+  int k = 0;
+
+  std::ofstream outfile;
+  outfile.open(pkg_path+"/data/correspondences.csv");
+  for (size_t i = 0; i < radar_data.size(); i++) {
+    for (size_t j = 0; j < radar_data[i].size(); j++) {
+      double time = radar_data[i][j].time_ - 0.05;
+      auto lidar_iter = find_if(lidar_data[i].begin(), lidar_data[i].end(),
+                                [time] (const measurement& l_data)
+                                {return time <= l_data.time_; });
+
+      if ((lidar_iter == lidar_data[i].begin() && std::fabs(lidar_iter->time_-time) > 1)
+          || (lidar_iter == lidar_data[i].end() && std::fabs((lidar_iter-1)->time_-time) > 1)
+          || (lidar_iter->time_-time) > 1 || std::fabs((lidar_iter-1)->time_-time) > 1) {
+        std::cout << "Data at time : " << std::to_string(time)
+                  << " can not matched." << std::endl;
+        continue;
+      }
+      Point pt_lidar, pt_lidar_transformed;
+      decltype(lidar_iter) l1, l2;
+      if (lidar_iter == lidar_data[i].begin()) {
+        l1 = lidar_iter + 1;
+        l2 = lidar_iter;
+      } else if (lidar_iter == lidar_data[i].end()) {
+        l1 = lidar_iter - 1;
+        l2 = lidar_iter - 2;
+      } else {
+        l1 = lidar_iter;
+        l2 = lidar_iter - 1;
+      }
+
+      pt_lidar = (time-l1->time_)/(l1->time_-l2->time_)*(l1->point_-l2->point_)
+                 + l1->point_;
+      pt_lidar_transformed = T_lr.inverse() * pt_lidar;
+      rcs_points->points[k].x = pt_lidar_transformed.x();
+      rcs_points->points[k].y = pt_lidar_transformed.y();
+      rcs_points->points[k].z = pt_lidar_transformed.z();
+      rcs_points->points[k].intensity = radar_data[i][j].intensity_;
+      k++;
+      double range = radar_data[i][j].point_.norm();
+      double azimuth = RadToDeg(std::atan2(radar_data[i][j].point_.y(),
+                                           radar_data[i][j].point_.x()));
+      outfile << sid << ", "
+              << pt_lidar.x() << ", "
+              << pt_lidar.y() << ", "
+              << pt_lidar.z() << ", "
+              << range << ", "
+              << azimuth << ", "
+              << radar_data[i][j].intensity_ << std::endl;
+    }
+  }
+  outfile.close();
+  rcs_pub.publish(rcs_points);
+}
+
 
 }  // namespace model_fitting

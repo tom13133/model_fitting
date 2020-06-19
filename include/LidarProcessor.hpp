@@ -36,7 +36,24 @@
 #include <lidar_processing.hpp>
 #include <model.hpp>
 
+#include <tf/transform_broadcaster.h>
+#include <esr_msgs/Track.h>
+
 namespace model_fitting {
+
+struct measurement{
+  int id_;
+  double time_;
+  Point point_;
+  double intensity_;
+  double range_rate_;
+  Vector3 v_;
+  bool valid_;
+};
+
+typedef std::vector<measurement> measurements;
+
+
 // Specification
 const char* m_type;  // triangle or square
 double ce_length;  // length from center to endpoints
@@ -62,13 +79,16 @@ class LidarProcessor {
   ros::Publisher model_pub;
   ros::Publisher normal_pub;
 
+  ros::Publisher rcs_pub;
   // Subscriber
   ros::Subscriber lidar_sub;
+  ros::Subscriber radar_sub;
 
   // callback function: subscribe original PointCloud and process
   void cb_lidar(const sensor_msgs::PointCloud2& msg);
-
+  void cb_radar(const esr_msgs::Track &msg);
   ~LidarProcessor();
+  void saveCorrespondences();
 
  private:
   std::vector<float> center;
@@ -79,13 +99,25 @@ class LidarProcessor {
   std::ofstream outfile_l;
 
   std::string topic_name_lidar;
+  std::string topic_name_radar;
   std::string topic_frame_lidar;
+  std::string topic_frame_radar;
 
   std::vector<int> cloud_size;
 
   double edge_points_resolution;
 
   KalmanFilter kf;
+
+  Pose T_lr;
+  tf::TransformBroadcaster br;
+  tf::Transform transform;
+  std::vector<measurements> radar_data;
+  std::vector<measurements> lidar_data;
+  std::vector<measurement> searching_centers;
+  std::vector<float> searching_region;
+  std::vector<esr_msgs::Track> radar_buffer;
+  std::string sid;
 };
 
 void kf_init(KalmanFilter& kf, const Vector3& x_y_phi, const double time);
