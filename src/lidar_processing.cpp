@@ -137,10 +137,11 @@ void edge_extract(const PointCloud::ConstPtr& input,
   // Sort points by its azimuth, and choose the farest points as edge points
   PointCloud::Ptr transformed_cloud(new PointCloud);
   pcl::transformPointCloud(*input, *transformed_cloud, rot_matrix);
-
+  Eigen::Vector4f centroid_2d;
+  pcl::compute3DCentroid(*transformed_cloud, centroid_2d);
   int div = 360 / resolution;
-  double c_x = centroid[0];
-  double c_y = centroid[1];
+  double c_x = centroid_2d[0];
+  double c_y = centroid_2d[1];
   std::vector<std::pair<int, double>> edge_points;
   for (int i = 0; i < div; i++)
     edge_points.push_back(std::make_pair(-1, 0));
