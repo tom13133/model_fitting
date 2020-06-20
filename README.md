@@ -1,4 +1,4 @@
-# ROS package to accomplish planar model-fitting.
+# Package model-fitting.
 
 This package is to accomplish planar model-fitting given a triangle or square shaped planar point cloud.  
 
@@ -23,7 +23,7 @@ Their path are
 ```
 
 2. format:  
-**lidar_config.yaml** are used for launching **LidarProcessor_node**.  
+**lidar_config.yaml** is used for launching **LidarProcessor_node**.  
 
 **lidar_config.yaml**  
 > topic_name_lidar: "/points_raw"  
@@ -35,14 +35,14 @@ Their path are
 > target_size_set:  
 >   model_type: triangle  
 >   center_to_end_length: 0.6  
->   reflector_edge_length: 0.282843  
+>   depth: 0.163299  
 > edge_points_resolution: 5
 
 **topic_name_lidar** specify the topic name for subsciber.  
 **box_filter_set** is used to extract target points from pointcloud by predifining a center and a cube scope.  
-**intensity_filter_set** is used to extract target points from pointcloud by predifining a intensity region.  
-**target_size_set** is the specification of target ("triangle" or "square"). (unit: m)  
-**edge_points_resolution** is the resolution for extracting edge points, i.e, the board points are segmented into different sets and the farest point from board centroid in one set is considered as edge point.(unit: deg).  
+**intensity_filter_set** is used to extract target points from pointcloud by predifining the intensity thresholds.  
+**target_size_set** is the specification of target ("triangle" or "square"). Where **center_to_end_length** specify the distance from center to edge points, **depth** specify the depth of center compensation. (unit: m)  
+**edge_points_resolution** is the resolution for extracting edge points, i.e., the board points are segmented into different sets by resolution and the farest point to board centroid in one set is considered as edge point.(unit: deg).  
 
 
 ### (b) Getting Started.
@@ -60,8 +60,8 @@ Or set the location in **lidar_config.yaml** directly.
 
 3. Play the bag, then start processing.  
 After bag is finished, one output file **lidar_data_raw.csv** would be generated in ```~/model_fitting/data/```. It contains the target center and the vertices with timestamp:  
-(**List order**: time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz)   
-* Notice that (c_x, c_y, c_y) is the center of the triangle (square) model, and (c_xx, c_yy, c_zz) is the center of the corner reflector.  
+(**List order**: time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, c_zz)   
+* Notice that (c_x, c_y, c_y) is the center of the triangle (square) model, and (c_xx, c_yy, c_zz) is the center after center compensation (i.e., *(c_xx, c_yy, c_zz) = (c_x, c_y, c_y) - depth \* normal*).  
 
 * Result:
 <img src="https://github.com/tom13133/model_fitting/blob/master/images/triangle.png" width="300">

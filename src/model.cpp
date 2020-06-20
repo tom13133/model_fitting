@@ -417,8 +417,9 @@ visualization_msgs::Marker print_Normal(const Point& pt,
   normal_arrow.type = visualization_msgs::Marker::ARROW;
   normal_arrow.action = visualization_msgs::Marker::ADD;
 
-  normal_arrow.scale.x = 0.05;
-  normal_arrow.scale.y = 0.1;
+  normal_arrow.scale.x = scale * 0.2;
+  normal_arrow.scale.y = scale * 0.3;
+  normal_arrow.scale.z = scale * 0.3;
   normal_arrow.color.g = 1;
   normal_arrow.color.a = 1;
 

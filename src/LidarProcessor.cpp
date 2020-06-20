@@ -36,13 +36,12 @@ LidarProcessor::LidarProcessor(ros::NodeHandle* nh) {
   nh->getParam("/LidarProcessor_node/target_size_set/model_type", str);
   m_type = str.c_str();
   nh->getParam("/LidarProcessor_node/target_size_set/center_to_end_length", ce_length);
-  nh->getParam("/LidarProcessor_node/target_size_set/reflector_edge_length", cr_length);
-  depth = std::sqrt(cr_length*cr_length / 3);
+  nh->getParam("/LidarProcessor_node/target_size_set/depth", depth);
 
   nh->getParam("/LidarProcessor_node/edge_points_resolution", edge_points_resolution);
   // open file and save the processed target point
   outfile_l.open(pkg_path + "/data/lidar_data_raw.csv");
-  outfile_l << "time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, czz" << std::endl;
+  outfile_l << "time_stamp, c_x, c_y, c_z, v1_x, v1_y, v1_z, ..., c_xx, c_yy, c_zz" << std::endl;
 }
 
 

@@ -1,12 +1,12 @@
-topic_name_lidar: "/Processor_node/local_map"
+topic_name_lidar: "/points_raw"
 box_filter_set:
-  center: [2, 3, 0.5]
-  cube_side_length: [3,3,10]
+  center: [9, 2, 0.5]
+  cube_side_length: [1,1,10]
 intensity_filter_set:
   lower_upper_bound: [20, 150]
 target_size_set:
   model_type: triangle
   center_to_end_length: 0.6
-  reflector_edge_length: 0.282843
-edge_points_resolution: 5
+  depth: 0.163299
+edge_points_resolution: 20
 

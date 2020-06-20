@@ -40,8 +40,7 @@ namespace model_fitting {
 // Specification
 const char* m_type;  // triangle or square
 double ce_length;  // length from center to endpoints
-double cr_length;
-double depth;  // depth of corner reflector
+double depth;  // depth of center compensation
 
 // class LidarProcessor subscribe point cloud, then publish processed data
 class LidarProcessor {
