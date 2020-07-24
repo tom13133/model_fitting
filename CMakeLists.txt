@@ -4,7 +4,7 @@ project(model_fitting)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
-
+set(CMAKE_BUILD_TYPE Release)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
