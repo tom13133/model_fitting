@@ -317,6 +317,32 @@ void LidarProcessor::cb_lidar(const sensor_msgs::PointCloud2& msg) {
                                                          topic_frame_lidar,
                                                          depth);
   normal_pub.publish(normal_arrow);
+  Point t_lr = Point(0.15, 0.19, -0.24);
+  rotation = AngleAxis(DegToRad(32.59), Vector3::UnitZ()) *
+                  AngleAxis(DegToRad(1.7), Vector3::UnitY()) *
+                  AngleAxis(DegToRad(-0.3), Vector3::UnitX());
+  Orientation o_lr = Orientation(rotation.matrix().transpose());
+  Pose T_lr(o_lr, t_lr);
+
+  PointCloud::Ptr transformed_board_cloud(new PointCloud);
+  pcl::transformPointCloud (*board_cloud, *transformed_board_cloud, T_lr.inverse().matrix());
+  Eigen::Vector4f normal_t = Find_Normal(transformed_board_cloud);
+
+  Point center(model_centroid[0], model_centroid[1], model_centroid[2]);
+  Point transformed_center = T_lr.inverse() * center;
+  center = center.normalized();
+  transformed_center = transformed_center.normalized();
+
+  Point model_normal(-normal[0], -normal[1], -normal[2]);
+  double theta = RadToDeg(std::acos(model_normal.dot(center)));
+  std::cout << "Point Cloud normal: (" << normal[0] << ", " << normal[1] << ", " << normal[2] << ")" << std::endl;
+  std::cout << "Point Cloud center: (" << center[0] << ", " << center[1] << ", " << center[2] << ")" << std::endl;
+  std::cout << "Theta: " << theta << std::endl;
+  Point model_normal_t(-normal_t[0], -normal_t[1], -normal_t[2]);
+  double theta_t = RadToDeg(std::acos(model_normal_t.dot(transformed_center)));
+  std::cout << "Point Cloud normal_t: (" << normal_t[0] << ", " << normal_t[1] << ", " << normal_t[2] << ")" << std::endl;
+  std::cout << "Point Cloud center_t: (" << transformed_center[0] << ", " << transformed_center[1] << ", " << transformed_center[2] << ")" << std::endl;
+  std::cout << "Theta_t: " << theta_t << std::endl;
 }
 
 LidarProcessor::~LidarProcessor() {
